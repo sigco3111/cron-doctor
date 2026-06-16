@@ -16,6 +16,8 @@ Each field supports:
     JAN-DEC        month names (case-insensitive)
     SUN-SAT        weekday names (case-insensitive)
 
+Stable since v1.0.0. No breaking changes within v1.x.
+
 Field ranges (inclusive):
 
     second, minute:  0-59

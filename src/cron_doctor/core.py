@@ -22,6 +22,8 @@ Public API:
 
     _default_registry() uses a lazy import to break the core <-> checks
     circular dependency (see CONTRIBUTING.md).
+
+Stable since v1.0.0. No breaking changes within v1.x.
 """
 
 from __future__ import annotations

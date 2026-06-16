@@ -4,6 +4,8 @@ Wraps PyYAML to:
 - Always return list[dict] (wrap single-dict top-level in a list)
 - Translate PyYAML YAMLError to ParseError with file/line/column
 - Translate FileNotFoundError / PermissionError to UnreadableFileError
+
+Stable since v1.0.0. No breaking changes within v1.x.
 """
 
 from __future__ import annotations

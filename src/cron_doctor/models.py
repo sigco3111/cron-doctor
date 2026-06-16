@@ -3,6 +3,8 @@
 This module is the single point of truth for shared data structures and is the
 ONLY module that both `core.py` and `checks/` import directly. This breaks
 circular import cycles (see CONTRIBUTING.md).
+
+Stable since v1.0.0. No breaking changes within v1.x.
 """
 
 from __future__ import annotations

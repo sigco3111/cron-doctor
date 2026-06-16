@@ -9,6 +9,8 @@ Hierarchy:
     ├── InvalidCronExpression  — malformed cron string (carries field name/index)
     ├── UnreadableFileError    — file not found / permission denied
     └── SchemaViolation        — YAML document does not match Hermes cron.yaml schema
+
+Stable since v1.0.0. No breaking changes within v1.x.
 """
 
 
