@@ -5,6 +5,7 @@ import sys
 import textwrap
 from pathlib import Path
 
+import cron_doctor
 import pytest
 
 
@@ -26,7 +27,7 @@ def run_cli(*args, cwd=None):
 def test_version_flag():
     r = run_cli("--version")
     assert r.returncode == 0
-    assert "0.3.0" in r.stdout
+    assert cron_doctor.__version__ in r.stdout
 
 
 # --- list-checks ---
