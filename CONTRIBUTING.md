@@ -5,6 +5,17 @@
 ## 🎯 핵심 원칙 — Core Principles
 
 1. **Minimal 외부 의존성** — Python 3.9+ 표준 라이브러리 + **PyYAML만**. PyYAML은 YAML 파싱 시 정확한 line/column 정보를 얻기 위해 사용됨. 그 외 추가 패키지는 끌어오지 않음.
+
+## 🔒 Public API 안정성 (v1.0.0+)
+
+`src/cron_doctor/__init__.py`의 `__all__`에 노출된 모든 심볼은 **v1.x 시리즈 내에서 backward-compatible**입니다.
+
+- **Breaking change 금지** (v1.x 내) — major 버전 bump 필요
+- **Deprecation 정책**: `CHANGELOG.md`의 `### Deprecated` 섹션에 공지 + 최소 1개 minor release 동안 유지 후 major에서 제거
+- **신규 심볼 추가** (minor release) — breaking change 아님
+- 새 public 심볼 제안 시: PR에 rationale + 사용 예시 포함
+
+자세한 API 계약: [`docs/API.md`](docs/API.md)
 2. **순환 import 방지** — `core.py` ↔ `checks/` 간 의존은 항상 `models.py`를 통해.
 3. **테스트 우선** — 새 검사 모듈은 골든 파일(`tests/fixtures/`)과 함께 PR.
 4. **한/영 문서** — README/CHANGELOG는 항상 한/영 병기.
