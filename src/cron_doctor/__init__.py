@@ -13,7 +13,7 @@ Stable since v1.0.0. No breaking changes within v1.x.
 """
 from __future__ import annotations
 
-__version__ = "0.3.0"
+__version__ = "1.0.0"
 
 from cron_doctor.exceptions import (
     CronDoctorError,

@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import platform
 import sys
 from pathlib import Path
 from typing import List, Optional, Sequence
@@ -377,7 +378,10 @@ def build_parser() -> argparse.ArgumentParser:
         prog="cron-doctor",
         description="Diagnose cron.yaml files — syntax, semantics, dependencies, schema.",
     )
-    parser.add_argument("--version", action="version", version=f"cron-doctor {__version__}")
+    parser.add_argument(
+        "--version", action="version",
+        version=f"cron-doctor {__version__} (Python {platform.python_version()})",
+    )
 
     sub = parser.add_subparsers(dest="command", required=False)
 
