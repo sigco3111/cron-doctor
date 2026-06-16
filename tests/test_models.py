@@ -4,6 +4,7 @@ from cron_doctor.models import (
     Severity,
     Diagnosis,
     CheckResult,
+    FixProposal,
     BaseCheck,
 )
 
@@ -105,3 +106,20 @@ def test_base_check_non_conforming_not_instance():
     class NotA:
         pass
     assert not isinstance(NotA(), BaseCheck)
+
+
+def test_fix_proposal_creation():
+    p = FixProposal(
+        file="f.yaml",
+        line=3,
+        check_id="T001",
+        description="replace invalid timezone with 'UTC'",
+        original="  timezone: Foo/Bar",
+        replacement="  timezone: UTC",
+    )
+    assert p.file == "f.yaml"
+    assert p.line == 3
+    assert p.check_id == "T001"
+    assert p.description == "replace invalid timezone with 'UTC'"
+    assert p.original == "  timezone: Foo/Bar"
+    assert p.replacement == "  timezone: UTC"

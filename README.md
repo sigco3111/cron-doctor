@@ -81,22 +81,27 @@ cron-doctor list-checks
 cron-doctor fix ./cron.yaml --dry-run
 ```
 
-**Python API (v0.2.0+ 예정)**:
+**Python API (v0.2.0+)**:
 ```python
-from cron_doctor import diagnose
+from cron_doctor import diagnose, fix, FixProposal, Severity
 
+# Diagnose
 result = diagnose("./cron.yaml")
 for issue in result.issues:
     print(f"[{issue.severity}] {issue.check_id}: {issue.message}")
-    if issue.suggestion:
-        print(f"  💡 {issue.suggestion}")
+
+# Auto-fix (dry-run is the default; pass dry_run=False to write)
+fix_result = fix("./cron.yaml", dry_run=True)
+print(f"Would apply {fix_result['would_apply']} fix(es)")
+for p in fix_result["proposals"]:
+    print(f"  [{p.check_id}] {p.description}")
 ```
 
 ---
 
 ## 🔍 검사 모듈 — Checks
 
-### v0.1.0 (활성, 다른 PC에서 구현)
+### v0.1.0 (활성)
 | ID | 이름 | 설명 |
 |---|---|---|
 | `Y001` | YAML 파싱 | YAML 문법 오류를 정확한 위치로 보고 |
@@ -105,10 +110,24 @@ for issue in result.issues:
 | `D001` | 의존성 그래프 | `context_from` 체인의 순환 / 깨진 참조 |
 | `S001` | 스키마 검증 | Hermes cron.yaml 스키마 준수 |
 
-### v0.2.0+ (예정)
-- `T001` 시간대 — `timezone` 필드 유효성
-- `P001` 프롬프트 자가검증 — 프롬프트 길이/민감정보
-- `M001` MCP 설정 검증 — `enabled_toolsets` 참조 무결성
+### v0.2.0 (활성)
+| ID | 이름 | 설명 |
+|---|---|---|
+| `T001` | 시간대 | IANA 시간대 검증 (zoneinfo stdlib). 잘못된 값 WARNING. |
+| `P001` | 프롬프트 자가검증 | 길이 10K+ WARNING, 내장 secret (sk-/AKIA/ghp_/Bearer/password=) ERROR. |
+| `M001` | MCP 설정 | `enabled_toolsets` 참조 무결성. 깨진 참조 ERROR, 중복 정의 WARNING. |
+
+**`fix` 서브커맨드** (v0.2.0+):
+```bash
+# Dry-run (기본값, 안전)
+cron-doctor fix ./cron.yaml
+
+# 실제 적용
+cron-doctor fix ./cron.yaml --apply
+
+# JSON 형식
+cron-doctor fix ./cron.yaml --format json
+```
 
 ---
 
@@ -189,7 +208,7 @@ cron-doctor check tests/fixtures/valid.yaml
 
 - [x] **v0.1.0** — README/About/스켈레톤 ✅
 - [x] **v0.1.0** — 5개 핵심 검사 + CLI 골격 + 골든 파일 테스트 ✅
-- [ ] **v0.2.0** — T001/P001/M001 + Python API + fix --dry-run
+- [x] **v0.2.0** — T001/P001/M001 + Python API + fix --dry-run ✅
 - [ ] **v0.3.0** — watch 모드 (실시간 파일 변경 감시)
 - [ ] **v1.0.0** — 안정 API + 95% 코드 커버리지
 
@@ -262,8 +281,8 @@ cd cron-doctor
 pip install -e ".[dev]"
 ```
 
-**Status**: v0.1.0 — 5 core checks (Y001/C001/C002/D001/S001) + CLI + golden file tests. 168 tests passing, ~73% coverage (cli/__main__ covered via subprocess).
+**Status**: v0.2.0 — 8 checks (Y001/C001/C002/D001/S001 + T001/P001/M001) + CLI + `fix` subcommand + golden file tests. 247 tests passing, ~73% coverage (cli/__main__ covered via subprocess).
 
-**Roadmap**: v0.2.0 (T001/P001/M001 + Python API + fix --dry-run) → v0.3.0 (watch mode) → v0.1.0 (stable API + 95% coverage).
+**Roadmap**: v0.3.0 (watch mode) → v0.1.0 (stable API + 95% coverage).
 
 See the [Korean section above](#crond-doctor) for full documentation, use cases, and check module details.

@@ -7,6 +7,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-06-16
+
+### Added
+- **3 new checks** (full implementations):
+  - `T001` (TimezoneCheck) — validates IANA timezone strings via `zoneinfo` (stdlib). WARNING for invalid/empty.
+  - `P001` (PromptCheck) — detects long prompts (>10000 chars, WARNING) and embedded secrets (sk-/pk-/AKIA/ghp_/Bearer/password=, ERROR) with conservative FP avoidance (CHANGEME, XXX, `<...>`, etc. are skipped).
+  - `M001` (MCPCheck) — validates `enabled_toolsets` references against the document-root `toolsets:` registry. ERROR for broken refs, WARNING for duplicate toolset names and missing registry.
+- **Auto-fix engine** (`core.propose_fixes` / `core.apply_fixes` / `core.fix`):
+  - Per-check `propose_fix(diagnosis, original_line)` static method
+  - Line-level text edits (preserves YAML formatting)
+  - `apply_fixes` is opt-in (safe by default)
+  - C001 is intentionally not auto-fixable (no safe rewrite for invalid cron)
+- **`fix` CLI subcommand** with safe `--dry-run` (default) / `--apply` (explicit opt-in):
+  - `cron-doctor fix PATH` — show proposals
+  - `cron-doctor fix PATH --apply` — write changes
+  - `--format text|json` output
+- **Public Python API enhancements**:
+  - `from cron_doctor import fix, FixProposal`
+  - `fix(path, dry_run=True)` returns `{proposals, applied, would_apply}`
+- **New YAML format support** (`load_cron_document`):
+  - Legacy format: top-level list of jobs
+  - v0.2+ format: top-level dict with `toolsets:` and `jobs:` keys
+- **4 new golden fixture YAMLs**: `t001_timezone.yaml`, `p001_prompt.yaml`, `m001_mcp.yaml`, `fix-dryrun.yaml`
+- **Test suite**: 247 tests (168 v0.1.0 + 79 new), 100% passing
+
+### Changed
+- **Default check count: 5 → 8** (added T001, P001, M001)
+- **`list-checks` test** updated from "all 5" to "all 8"
+- **`default_checks` test** updated from "has 5" to "has 8"
+
+### Notes
+- `timezone:` field is now checked — invalid values emit WARNING (not ERROR, since custom TZs may be valid in some contexts).
+- `enabled_toolsets:` requires a top-level `toolsets:` registry; using it without one emits WARNING.
+- P001 secret detection is intentionally conservative — false positives are worse than false negatives for a linter.
+- `fix --apply` writes in-place; back up your YAML before applying.
+
 ## [0.1.0] - 2026-06-16
 
 ### Added
