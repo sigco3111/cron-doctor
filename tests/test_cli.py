@@ -274,3 +274,84 @@ def test_fix_on_directory_recurses(tmp_path: Path):
     r = run_cli("fix", str(d))
     assert r.returncode == 0
     assert "b.yaml" in r.stdout
+
+
+def test_watch_help():
+    r = run_cli("watch", "--help")
+    assert r.returncode == 0
+    assert "--debounce" in r.stdout
+    assert "--poll-interval" in r.stdout
+    assert "--format" in r.stdout
+
+
+def test_watch_nonexistent_path_exit_2():
+    r = run_cli("watch", "/nonexistent/path.yaml")
+    assert r.returncode == 2
+    assert "not found" in r.stderr.lower() or "no such" in r.stderr.lower()
+
+
+def test_watch_unknown_check_id_exit_2(tmp_path: Path):
+    f = tmp_path / "x.yaml"
+    f.write_text("- name: a\n  schedule: '0 * * * *'\n  prompt: x\n")
+    r = run_cli("watch", str(f), "--checks", "Z999")
+    assert r.returncode == 2
+    assert "Z999" in r.stderr
+
+
+def test_watch_detects_modification_via_subprocess(tmp_path: Path):
+    f = tmp_path / "x.yaml"
+    f.write_text("- name: a\n  schedule: '0 * * * *'\n  prompt: x\n")
+    proc = subprocess.Popen(
+        [sys.executable, "-m", "cron_doctor", "watch", str(f),
+         "--debounce", "50", "--poll-interval", "20"],
+        stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+        cwd=REPO,
+    )
+    try:
+        import time
+        time.sleep(0.3)
+        f.write_text("- name: a\n  schedule: '5 * * * *'\n  prompt: x\n")
+        time.sleep(0.4)
+        proc.terminate()
+        proc.wait(timeout=5)
+        stdout = proc.stdout.read() or ""
+        assert "added" in stdout.lower() or "modified" in stdout.lower()
+        assert "0" == str(proc.returncode)
+    finally:
+        if proc.poll() is None:
+            proc.kill()
+
+
+def test_watch_format_json(tmp_path: Path):
+    import json as _json
+    import time
+    f = tmp_path / "x.yaml"
+    f.write_text("- name: a\n  schedule: '0 * * * *'\n  prompt: x\n")
+    proc = subprocess.Popen(
+        [sys.executable, "-m", "cron_doctor", "watch", str(f),
+         "--debounce", "50", "--poll-interval", "20", "--format", "json"],
+        stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+        cwd=REPO,
+    )
+    try:
+        time.sleep(0.5)
+        proc.terminate()
+        proc.wait(timeout=5)
+        stdout = proc.stdout.read() or ""
+        for line in stdout.strip().splitlines():
+            if line.strip():
+                obj = _json.loads(line)
+                assert "timestamp" in obj
+                assert "path" in obj
+                assert "kind" in obj
+    finally:
+        if proc.poll() is None:
+            proc.kill()
+
+
+def test_watch_invalid_format_flag(tmp_path: Path):
+    f = tmp_path / "x.yaml"
+    f.write_text("- name: a\n  schedule: '0 * * * *'\n  prompt: x\n")
+    r = run_cli("watch", str(f), "--format", "xml")
+    assert r.returncode == 2
+    assert "invalid" in r.stderr.lower() or "xml" in r.stderr.lower()

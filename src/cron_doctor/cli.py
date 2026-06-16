@@ -289,6 +289,87 @@ def _run_fix(args: argparse.Namespace) -> int:
     return 0
 
 
+def _run_watch(args: argparse.Namespace) -> int:
+    """Run the watch subcommand: continuously re-validate on file changes."""
+    import signal as _signal
+    from datetime import datetime as _dt
+
+    path = Path(args.path)
+    if not path.exists():
+        print(f"cron-doctor: error: path not found: {path}", file=sys.stderr)
+        return 2
+
+    checks = None
+    if args.checks:
+        wanted = {c.strip() for c in args.checks.split(",") if c.strip()}
+        checks = [c for c in default_checks() if c.check_id in wanted]
+        unknown = wanted - {c.check_id for c in checks}
+        if unknown:
+            print(
+                f"cron-doctor: error: unknown check ID(s): {sorted(unknown)}",
+                file=sys.stderr,
+            )
+            print(f"  available: {sorted(c.check_id for c in ALL_CHECKS)}", file=sys.stderr)
+            return 2
+
+    def _raise_kbi(_signum, _frame):
+        raise KeyboardInterrupt()
+
+    try:
+        _signal.signal(_signal.SIGTERM, _raise_kbi)
+    except (ValueError, AttributeError, OSError):
+        pass
+
+    fmt = args.format
+
+    from cron_doctor.core import watch
+
+    try:
+        for event in watch(
+            path,
+            checks=checks,
+            debounce_ms=args.debounce,
+            poll_interval_ms=args.poll_interval,
+        ):
+            ts = _dt.fromtimestamp(event.timestamp).strftime("%Y-%m-%d %H:%M:%S")
+            if fmt == "text":
+                print(f"[{ts}] {event.path} {event.kind}")
+                if event.results:
+                    out = _format_text(
+                        event.results,
+                        use_color=False,
+                        min_severity="info",
+                    )
+                    for line in out.splitlines():
+                        print(f"  {line}")
+            elif fmt == "json":
+                import json as _json
+                issues_out = []
+                for r in event.results:
+                    for i in r.issues:
+                        issues_out.append({
+                            "check_id": i.check_id,
+                            "severity": i.severity.value,
+                            "message": i.message,
+                            "file": i.file,
+                            "line": i.line,
+                        })
+                obj = {
+                    "timestamp": _dt.fromtimestamp(event.timestamp).isoformat(),
+                    "path": str(event.path),
+                    "kind": event.kind,
+                    "issues": issues_out,
+                }
+                print(_json.dumps(obj, ensure_ascii=False))
+            elif fmt == "github":
+                if event.results:
+                    print(_format_github(event.results, min_severity="info"))
+    except KeyboardInterrupt:
+        pass
+
+    return 0
+
+
 # --- Argparse setup ---
 
 def build_parser() -> argparse.ArgumentParser:
@@ -356,6 +437,28 @@ def build_parser() -> argparse.ArgumentParser:
         help="Output format (default: text)",
     )
 
+    p_watch = sub.add_parser(
+        "watch",
+        help="Watch a file or directory for changes and re-validate",
+    )
+    p_watch.add_argument("path", help="Path to a .yaml file or a directory of .yaml files")
+    p_watch.add_argument(
+        "--debounce", type=int, default=200,
+        help="Debounce window in ms (default: 200)",
+    )
+    p_watch.add_argument(
+        "--poll-interval", type=int, default=100,
+        help="Polling interval in ms (default: 100)",
+    )
+    p_watch.add_argument(
+        "--format", choices=["text", "json", "github"], default="text",
+        help="Output format (default: text)",
+    )
+    p_watch.add_argument(
+        "--checks", default=None,
+        help="Comma-separated list of check IDs to run (e.g. Y001,C001)",
+    )
+
     return parser
 
 
@@ -370,6 +473,8 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         return _run_list_checks(args)
     if args.command == "fix":
         return _run_fix(args)
+    if args.command == "watch":
+        return _run_watch(args)
 
     # No subcommand → show help
     parser.print_help()
