@@ -4,7 +4,7 @@
 
 ## 🎯 핵심 원칙 — Core Principles
 
-1. **Zero 외부 의존성** — Python 3.9+ 표준 라이브러리만 사용. `pip install cron-doctor`가 추가 패키지를 끌어오지 않게.
+1. **Minimal 외부 의존성** — Python 3.9+ 표준 라이브러리 + **PyYAML만**. PyYAML은 YAML 파싱 시 정확한 line/column 정보를 얻기 위해 사용됨. 그 외 추가 패키지는 끌어오지 않음.
 2. **순환 import 방지** — `core.py` ↔ `checks/` 간 의존은 항상 `models.py`를 통해.
 3. **테스트 우선** — 새 검사 모듈은 골든 파일(`tests/fixtures/`)과 함께 PR.
 4. **한/영 문서** — README/CHANGELOG는 항상 한/영 병기.
@@ -123,7 +123,7 @@ test: add golden file for C003
 - [ ] `pytest` 모두 통과
 - [ ] `cron-doctor --list-checks` 에 새 검사가 표시됨
 - [ ] README/CHANGELOG 업데이트 (영문/한글)
-- [ ] Zero 외부 의존성 유지 (pyproject.toml `dependencies` 비어있음)
+- [ ] Minimal 의존성 유지 (pyproject.toml `dependencies`는 `pyyaml`만 포함)
 
 ## ❓ 질문 — Questions
 
