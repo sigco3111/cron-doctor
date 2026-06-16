@@ -1,11 +1,39 @@
-"""C001: cron 표현식 문법 검증.
+"""C001: cron expression syntax validation.
 
-다른 PC 작업 가이드:
-    - 5필드 (Quartz) 와 6필드 (Hermes: 초+5필드) 모두 지원
-    - 필드: 분 시 일 월 요일 (초)
-    - 별표, 범위(1-5), 단계(*/5), 목록(1,3,5) 모두 파싱
-    - 5필드: 요일 0=일, 6=토  /  6필드: 초 0-59
-    - croniter 같은 외부 의존 없이 직접 파서 구현
-    - 파서 로직은 parsers/cron_expr.py 에 분리 (재사용)
+This check validates that a job's `schedule` is a valid 5- or 6-field
+cron expression using the parser in cron_doctor.parsers.cron_expr.
+If parsing raises InvalidCronExpression a Diagnosis with Severity.ERROR
+is returned.
 """
-# TODO: 다른 PC에서 구현
+from cron_doctor.exceptions import InvalidCronExpression
+from cron_doctor.models import Diagnosis, Severity
+from cron_doctor.parsers.cron_expr import parse
+
+
+class CronSyntaxCheck:
+    check_id = "C001"
+    name = "cron syntax"
+
+    def run(self, job: dict, context: dict) -> list[Diagnosis]:
+        issues: list[Diagnosis] = []
+        schedule = job.get("schedule")
+        if not isinstance(schedule, str) or not schedule.strip():
+            # C001 only validates non-empty string schedules
+            # (S001 catches missing schedule field)
+            return issues
+
+        try:
+            parse(schedule)
+        except InvalidCronExpression as e:
+            file = context.get("file", "<unknown>")
+            suggestion = None
+            if getattr(e, "field_name", None):
+                suggestion = f"Fix the {e.field_name} field (index {e.field_index})"
+            issues.append(Diagnosis(
+                check_id=self.check_id,
+                severity=Severity.ERROR,
+                message=f"Invalid cron expression {e.expression!r}: {e.message}",
+                suggestion=suggestion,
+                file=file,
+            ))
+        return issues
