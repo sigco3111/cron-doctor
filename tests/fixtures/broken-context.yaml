@@ -1,0 +1,6 @@
+# Golden fixture: broken context_from reference.
+# Expected: D001 emits at least one ERROR mentioning "nonexistent".
+- name: job_a
+  schedule: "0 * * * *"
+  prompt: "x"
+  context_from: [nonexistent]

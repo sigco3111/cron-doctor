@@ -1,0 +1,16 @@
+# Golden fixture: circular dependency (a → b → c → a).
+# Expected: D001 emits at least one ERROR mentioning "ircular".
+- name: job_a
+  schedule: "0 * * * *"
+  prompt: "x"
+  context_from: [job_b]
+
+- name: job_b
+  schedule: "0 * * * *"
+  prompt: "x"
+  context_from: [job_c]
+
+- name: job_c
+  schedule: "0 * * * *"
+  prompt: "x"
+  context_from: [job_a]

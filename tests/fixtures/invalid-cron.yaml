@@ -1,0 +1,5 @@
+# Golden fixture: invalid cron expression (minute out of range).
+# Expected: C001 emits at least one ERROR.
+- name: bad_minute
+  schedule: "60 * * * *"
+  prompt: "this schedule will never parse"

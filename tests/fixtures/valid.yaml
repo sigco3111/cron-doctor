@@ -1,0 +1,14 @@
+# Golden fixture: a clean, valid cron.yaml with no issues.
+# Used by tests/test_golden.py to verify the diagnose() happy path.
+- name: morning_briefing
+  schedule: "0 9 * * MON-FRI"
+  prompt: "Summarize today's news and weather"
+  context_from: []
+
+- name: cache_cleanup
+  schedule: "0 2 * * *"
+  script: "rm -rf /tmp/cache && echo done"
+
+- name: weather_check
+  schedule: "*/15 * * * *"
+  command: "curl -fsS https://wttr.in?format=3"

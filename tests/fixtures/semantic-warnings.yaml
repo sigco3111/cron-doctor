@@ -1,0 +1,16 @@
+# Golden fixture: semantic warnings (C002) and info.
+# Expected:
+#   - C002 WARNING for "* * * * *" (every minute)
+#   - C002 INFO for "0 0 29 2 *" (Feb 29, leap years only)
+#   - C002 WARNING for "0 0 * * 0,7" (0 and 7 duplication)
+- name: heartbeat
+  schedule: "* * * * *"
+  prompt: "ping"
+
+- name: leap_year_only
+  schedule: "0 0 29 2 *"
+  prompt: "leap day"
+
+- name: sunday_dup
+  schedule: "0 0 * * 0,7"
+  prompt: "sunday"
