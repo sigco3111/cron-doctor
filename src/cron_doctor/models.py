@@ -1,14 +1,80 @@
-"""도메인 타입 모음 — 순환 import 방지의 핵심.
+"""Domain types for cron-doctor.
 
-다른 PC 작업 가이드:
-    - Diagnosis (frozen dataclass): check_id, severity, message, suggestion, file, line
-    - Severity (str, Enum): INFO, WARNING, ERROR
-    - CheckResult (dataclass): 진단 결과 종합 (file, jobs, issues[])
-    - BaseCheck (Protocol): 모든 검사가 구현할 인터페이스 (run(job, context) -> list[Diagnosis])
-
-순환 import 방지 패턴:
-    - core.py와 checks/ 모두 이 모듈만 직접 import
-    - core가 default_checks() 호출 시 함수 내부 lazy import
-    - 자세한 내용: CONTRIBUTING.md 참고
+This module is the single point of truth for shared data structures and is the
+ONLY module that both `core.py` and `checks/` import directly. This breaks
+circular import cycles (see CONTRIBUTING.md).
 """
-# TODO: 다른 PC에서 Severity, Diagnosis, CheckResult, BaseCheck 구현
+
+from __future__ import annotations
+
+import enum
+from dataclasses import dataclass, field
+from typing import List, Optional, Protocol, runtime_checkable
+
+
+class Severity(str, enum.Enum):
+    """Issue severity. Str-Enum so it serializes naturally to JSON."""
+
+    INFO = "info"
+    WARNING = "warning"
+    ERROR = "error"
+
+
+@dataclass(frozen=True)
+class Diagnosis:
+    """A single diagnostic finding produced by a check.
+
+    Attributes:
+        check_id: Stable check identifier, e.g. "Y001", "C001".
+        severity: One of Severity.INFO / WARNING / ERROR.
+        message: Short human-readable description of the issue.
+        suggestion: Optional fix-it suggestion.
+        file: Optional file path the issue refers to.
+        line: Optional 1-based line number.
+    """
+
+    check_id: str
+    severity: Severity
+    message: str
+    suggestion: Optional[str] = None
+    file: Optional[str] = None
+    line: Optional[int] = None
+
+
+@dataclass
+class CheckResult:
+    """Aggregated result of running all checks on a single file.
+
+    Attributes:
+        file: Path of the file that was checked.
+        jobs: List of job dicts that were checked.
+        issues: List of Diagnosis produced by all checks.
+    """
+
+    file: str
+    jobs: list
+    issues: list = field(default_factory=list)
+
+    @property
+    def has_errors(self) -> bool:
+        return any(d.severity == Severity.ERROR for d in self.issues)
+
+    @property
+    def has_warnings(self) -> bool:
+        return any(d.severity == Severity.WARNING for d in self.issues)
+
+
+@runtime_checkable
+class BaseCheck(Protocol):
+    """Protocol every check must satisfy.
+
+    Concrete checks provide a class attribute `check_id` (e.g. "Y001") and
+    `name` (e.g. "YAML syntax"), and implement `run(job, context)`.
+    """
+
+    check_id: str
+    name: str
+
+    def run(self, job: dict, context: dict) -> List[Diagnosis]:
+        """Run this check on one job. Return a list of Diagnosis (possibly empty)."""
+        ...
