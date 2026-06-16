@@ -31,7 +31,7 @@ jobs:
 
       - name: Run tests with coverage
         run: |
-          pytest --cov=cron_doctor --cov-report=term --cov-report=xml --cov-fail-under=70
+          pytest --cov=cron_doctor --cov-report=term --cov-report=xml --cov-fail-under=95
 
       - name: Upload coverage to Codecov
         if: matrix.python-version == '3.12'
