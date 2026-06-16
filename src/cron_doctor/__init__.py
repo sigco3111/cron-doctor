@@ -4,13 +4,14 @@ Zero-deps-ish Python CLI that diagnoses cron.yaml files for syntax, semantics,
 dependencies, and schema. PyYAML is the only runtime dependency (used to get
 line/column info for actionable YAML error messages).
 
-Public API (v0.1.0):
-    from cron_doctor import diagnose
-    from cron_doctor.models import Diagnosis, CheckResult, Severity
+Public API (v0.2.0):
+    from cron_doctor import diagnose, fix
+    from cron_doctor.models import Diagnosis, CheckResult, FixProposal, Severity
+    from cron_doctor.exceptions import CronDoctorError, ParseError, ...
 """
 from __future__ import annotations
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 
 from cron_doctor.exceptions import (
     CronDoctorError,
@@ -19,14 +20,16 @@ from cron_doctor.exceptions import (
     SchemaViolation,
     UnreadableFileError,
 )
-from cron_doctor.models import CheckResult, Diagnosis, Severity
+from cron_doctor.models import CheckResult, Diagnosis, FixProposal, Severity
 
 # Re-exported for convenience
 __all__ = [
     "__version__",
     "diagnose",
+    "fix",
     "Diagnosis",
     "CheckResult",
+    "FixProposal",
     "Severity",
     "CronDoctorError",
     "InvalidCronExpression",
@@ -36,10 +39,13 @@ __all__ = [
 ]
 
 
-# Lazy import for `diagnose` to avoid loading core.py at import time
+# Lazy import for `diagnose` and `fix` to avoid loading core.py at import time
 # (helps with `cron-doctor --version` startup time)
 def __getattr__(name):
     if name == "diagnose":
         from cron_doctor.core import diagnose
         return diagnose
+    if name == "fix":
+        from cron_doctor.core import fix
+        return fix
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

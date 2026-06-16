@@ -227,6 +227,68 @@ def _run_list_checks(args: argparse.Namespace) -> int:
     return 0
 
 
+def _run_fix(args: argparse.Namespace) -> int:
+    """Propose (and optionally apply) auto-fixes for a file or directory."""
+    from cron_doctor.core import apply_fixes, propose_fixes
+    from cron_doctor.models import FixProposal
+
+    path = Path(args.path)
+    if not path.exists():
+        print(f"cron-doctor: error: path not found: {path}", file=sys.stderr)
+        return 2
+
+    apply_mode = bool(getattr(args, "apply", False))
+    fmt = getattr(args, "format", "text")
+
+    try:
+        proposals = propose_fixes(path)
+    except Exception as e:
+        print(f"cron-doctor: internal error: {type(e).__name__}: {e}", file=sys.stderr)
+        return 2
+
+    if not proposals:
+        print("cron-doctor: no fixable issues found.")
+        return 0
+
+    applied = 0
+    if apply_mode:
+        applied = apply_fixes(path, proposals)
+
+    if fmt == "json":
+        out = {
+            "version": __version__,
+            "would_apply": len(proposals),
+            "applied": applied,
+            "proposals": [
+                {
+                    "file": p.file,
+                    "line": p.line,
+                    "check_id": p.check_id,
+                    "description": p.description,
+                    "original": p.original,
+                    "replacement": p.replacement,
+                }
+                for p in proposals
+            ],
+        }
+        import json as _json
+        print(_json.dumps(out, indent=2, ensure_ascii=False))
+    else:
+        for p in proposals:
+            print(f"[{p.file}:{p.line}] {p.check_id}  {p.description}")
+            print(f"  - {p.original.rstrip()}")
+            print(f"  + {p.replacement.rstrip()}")
+        if apply_mode:
+            print(f"\nApplied {applied}/{len(proposals)} fix(es) to {path}")
+        else:
+            print(
+                f"\n{len(proposals)} proposal(s); 0 applied. "
+                f"Use --apply to write changes."
+            )
+
+    return 0
+
+
 # --- Argparse setup ---
 
 def build_parser() -> argparse.ArgumentParser:
@@ -269,6 +331,31 @@ def build_parser() -> argparse.ArgumentParser:
     # list-checks
     sub.add_parser("list-checks", help="List all available checks")
 
+    p_fix = sub.add_parser(
+        "fix",
+        help="Propose (and optionally apply) auto-fixes to a cron.yaml file or directory",
+    )
+    p_fix.add_argument("path", help="Path to a .yaml file or a directory of .yaml files")
+    fix_group = p_fix.add_mutually_exclusive_group()
+    fix_group.add_argument(
+        "--dry-run",
+        dest="dry_run",
+        action="store_true",
+        default=True,
+        help="(default) Show proposed fixes without modifying files",
+    )
+    fix_group.add_argument(
+        "--apply",
+        dest="apply",
+        action="store_true",
+        default=False,
+        help="Write proposed fixes to disk (requires explicit opt-in)",
+    )
+    p_fix.add_argument(
+        "--format", choices=["text", "json"], default="text",
+        help="Output format (default: text)",
+    )
+
     return parser
 
 
@@ -281,6 +368,8 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         return _run_check(args)
     if args.command == "list-checks":
         return _run_list_checks(args)
+    if args.command == "fix":
+        return _run_fix(args)
 
     # No subcommand → show help
     parser.print_help()

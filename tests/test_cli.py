@@ -26,7 +26,7 @@ def run_cli(*args, cwd=None):
 def test_version_flag():
     r = run_cli("--version")
     assert r.returncode == 0
-    assert "0.1.0" in r.stdout
+    assert "0.2.0" in r.stdout
 
 
 # --- list-checks ---
@@ -186,3 +186,91 @@ def test_no_subcommand_shows_help():
     r = run_cli()
     assert r.returncode == 2
     assert "usage" in r.stdout.lower() or "usage" in r.stderr.lower()
+
+
+# --- fix subcommand ---
+
+def test_fix_no_fixes_needed_exit_0(tmp_path: Path):
+    f = tmp_path / "ok.yaml"
+    f.write_text("- name: a\n  schedule: '0 * * * *'\n  prompt: x\n")
+    r = run_cli("fix", str(f))
+    assert r.returncode == 0
+    assert "no fixable" in r.stdout.lower() or "0 proposal" in r.stdout.lower() or "no fix" in r.stdout.lower()
+
+
+def test_fix_dry_run_default_does_not_modify(tmp_path: Path):
+    f = tmp_path / "bad.yaml"
+    f.write_text("- name: a\n  schedule: '0 * * * *'\n  prompt: x\n  timezone: Foo/Bar\n")
+    original = f.read_text()
+    r = run_cli("fix", str(f))
+    assert r.returncode == 0
+    assert "Foo/Bar" in r.stdout
+    assert f.read_text() == original
+
+
+def test_fix_apply_modifies_file(tmp_path: Path):
+    f = tmp_path / "bad.yaml"
+    f.write_text("- name: a\n  schedule: '0 * * * *'\n  prompt: x\n  timezone: Foo/Bar\n")
+    r = run_cli("fix", str(f), "--apply")
+    assert r.returncode == 0
+    new_text = f.read_text()
+    assert "UTC" in new_text
+    assert "Foo/Bar" not in new_text
+
+
+def test_fix_explicit_dry_run_flag(tmp_path: Path):
+    f = tmp_path / "bad.yaml"
+    f.write_text("- name: a\n  schedule: '0 * * * *'\n  prompt: x\n  timezone: Foo/Bar\n")
+    original = f.read_text()
+    r = run_cli("fix", str(f), "--dry-run")
+    assert r.returncode == 0
+    assert f.read_text() == original
+
+
+def test_fix_format_json(tmp_path: Path):
+    f = tmp_path / "bad.yaml"
+    f.write_text("- name: a\n  schedule: '0 * * * *'\n  prompt: x\n  timezone: Foo/Bar\n")
+    r = run_cli("fix", str(f), "--format", "json")
+    assert r.returncode == 0
+    import json
+    data = json.loads(r.stdout)
+    assert "proposals" in data
+    assert data["would_apply"] >= 1
+    assert data["applied"] == 0
+
+
+def test_fix_format_json_after_apply(tmp_path: Path):
+    f = tmp_path / "bad.yaml"
+    f.write_text("- name: a\n  schedule: '0 * * * *'\n  prompt: x\n  timezone: Foo/Bar\n")
+    r = run_cli("fix", str(f), "--apply", "--format", "json")
+    assert r.returncode == 0
+    import json
+    data = json.loads(r.stdout)
+    assert data["applied"] >= 1
+
+
+def test_fix_nonexistent_file_exit_2():
+    r = run_cli("fix", "/nonexistent/path.yaml")
+    assert r.returncode == 2
+    assert "not found" in r.stderr.lower() or "no such" in r.stderr.lower()
+
+
+def test_fix_idempotent_after_apply(tmp_path: Path):
+    """After --apply, running fix again should report 0 proposals."""
+    f = tmp_path / "bad.yaml"
+    f.write_text("- name: a\n  schedule: '0 * * * *'\n  prompt: x\n  timezone: Foo/Bar\n")
+    r1 = run_cli("fix", str(f), "--apply")
+    assert r1.returncode == 0
+    r2 = run_cli("fix", str(f))
+    assert r2.returncode == 0
+    assert "no fixable" in r2.stdout.lower() or r2.stdout.count("Would fix") == 0
+
+
+def test_fix_on_directory_recurses(tmp_path: Path):
+    d = tmp_path / "jobs"
+    d.mkdir()
+    (d / "a.yaml").write_text("- name: a\n  schedule: '0 * * * *'\n  prompt: x\n")
+    (d / "b.yaml").write_text("- name: b\n  schedule: '0 * * * *'\n  prompt: x\n  timezone: Foo/Bar\n")
+    r = run_cli("fix", str(d))
+    assert r.returncode == 0
+    assert "b.yaml" in r.stdout
