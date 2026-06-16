@@ -120,10 +120,10 @@ def test_semantic_dow_0_and_7_warning():
 # --- directory mode on fixtures ---
 
 def test_directory_mode_processes_all_yaml_fixtures(tmp_path: Path):
-    """Running diagnose() on the fixtures dir should find all 9 YAMLs (5 v0.1.0 + 4 v0.2.0)."""
+    """Running diagnose() on the fixtures dir should find all 11 YAMLs (5 v0.1.0 + 4 v0.2.0 + 2 v0.3.0 watch-test)."""
     results = diagnose(FIXTURES)
     yaml_count = sum(1 for r in results if r.file.endswith((".yaml", ".yml")))
-    assert yaml_count == 9
+    assert yaml_count == 11
 
 
 # --- t001_timezone.yaml ---

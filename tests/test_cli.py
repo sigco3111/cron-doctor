@@ -26,7 +26,7 @@ def run_cli(*args, cwd=None):
 def test_version_flag():
     r = run_cli("--version")
     assert r.returncode == 0
-    assert "0.2.0" in r.stdout
+    assert "0.3.0" in r.stdout
 
 
 # --- list-checks ---
