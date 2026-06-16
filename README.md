@@ -5,8 +5,8 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
-[![Zero Dependencies](https://img.shields.io/badge/dependencies-zero-brightgreen.svg)](#설치--installation)
-[![Status: 0.1.0 (skeleton)](https://img.shields.io/badge/status-0.1.0--skeleton-orange.svg)](#로드맵--roadmap)
+[![Dependencies: PyYAML only](https://img.shields.io/badge/dependencies-PyYAML--only-blue.svg)](#설치--installation)
+[![Status: 0.1.0 (stable)](https://img.shields.io/badge/status-0.1.0--stable-brightgreen.svg)](#로드맵--roadmap)
 
 `md-doctor`의 짝꿍 프로젝트 — **마크다운을 진단하듯, cron 작업을 진단합니다**.
 
@@ -187,11 +187,11 @@ cron-doctor check tests/fixtures/valid.yaml
 
 ## 🗺️ 로드맵 — Roadmap
 
-- [x] **v0.1.0** — README/About/스켈레톤 (이 단계) ✅
-- [ ] **v0.1.0** — 5개 핵심 검사 + CLI 골격 + 골든 파일 테스트
+- [x] **v0.1.0** — README/About/스켈레톤 ✅
+- [x] **v0.1.0** — 5개 핵심 검사 + CLI 골격 + 골든 파일 테스트 ✅
 - [ ] **v0.2.0** — T001/P001/M001 + Python API + fix --dry-run
 - [ ] **v0.3.0** — watch 모드 (실시간 파일 변경 감시)
-- [ ] **v1.0.0** — 안정 API + 95% 코드 커버리지 + 공식 GitHub Action 마켓플레이스 등록
+- [ ] **v1.0.0** — 안정 API + 95% 코드 커버리지
 
 ---
 
@@ -215,12 +215,12 @@ cron-doctor/
 │       ├── models.py
 │       ├── exceptions.py
 │       └── checks/
-│           ├── __init__.py
-│           ├── yaml_check.py     (Y001)
-│           ├── cron_syntax.py    (C001)
-│           ├── cron_semantics.py (C002)
-│           ├── dependencies.py   (D001)
-│           └── schema.py         (S001)
+│           ├── __init__.py          (registry: ALL_CHECKS, default_checks)
+│           ├── Y001_yaml.py         (YAML syntax)
+│           ├── C001_cron_syntax.py  (cron expression)
+│           ├── C002_cron_semantics.py (cron semantics: every-minute, leap-day, dow-dup)
+│           ├── D001_dependencies.py (context_from cycles + depth)
+│           └── S001_schema.py       (Hermes cron.yaml schema)
 ├── tests/
 │   ├── fixtures/
 │   │   ├── valid.yaml
@@ -253,7 +253,7 @@ MIT © 2026 sigco3111
 
 ## 🇬🇧 English Quick Reference
 
-`cron-doctor` is a zero-dependency CLI that validates `cron.yaml` files for **syntax** (YAML + cron expressions), **semantics** (suspicious schedules, zero-weekday-zero), **dependencies** (`context_from` chains), and **schema** (Hermes cron.yaml schema).
+`cron-doctor` is a minimal-dependency CLI (PyYAML only) that validates `cron.yaml` files for **syntax** (YAML + cron expressions), **semantics** (suspicious schedules, leap-day, weekday-dup), **dependencies** (`context_from` chains), and **schema** (Hermes cron.yaml schema). PyYAML is used to extract line/column for actionable YAML error messages.
 
 **Install** (from another PC, where the source code will be developed):
 ```bash
@@ -262,8 +262,8 @@ cd cron-doctor
 pip install -e ".[dev]"
 ```
 
-**Status**: v0.1.0 skeleton (README + LICENSE only). Full implementation is in progress on a different machine.
+**Status**: v0.1.0 — 5 core checks (Y001/C001/C002/D001/S001) + CLI + golden file tests. 168 tests passing, ~73% coverage (cli/__main__ covered via subprocess).
 
-**Roadmap**: v0.1.0 (5 core checks + CLI) → v0.2.0 (Python API + fix --dry-run) → v0.3.0 (watch mode) → v1.0.0 (stable API + GitHub Action marketplace).
+**Roadmap**: v0.2.0 (T001/P001/M001 + Python API + fix --dry-run) → v0.3.0 (watch mode) → v0.1.0 (stable API + 95% coverage).
 
 See the [Korean section above](#crond-doctor) for full documentation, use cases, and check module details.
