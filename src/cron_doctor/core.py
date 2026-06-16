@@ -15,14 +15,22 @@ Public API:
         the number of proposals applied. Caller must explicitly opt-in (e.g.
         `fix --apply`).
 
+    watch(path, *, checks=None, debounce_ms=200, poll_interval_ms=100) -> Iterator[WatchEvent]
+        Poll a file or directory for changes. Yields WatchEvent for each
+        added/modified/deleted .yaml/.yml file. Uses (mtime_ns, size)
+        as the change signal. Coalesces rapid writes via debounce.
+
     _default_registry() uses a lazy import to break the core <-> checks
     circular dependency (see CONTRIBUTING.md).
 """
 
 from __future__ import annotations
 
+import os
+import time
+from dataclasses import dataclass, field
 from pathlib import Path
-from typing import List, Optional, Union
+from typing import Dict, Iterator, List, Literal, Optional, Tuple, Union
 
 from cron_doctor.models import CheckResult, Diagnosis, FixProposal, Severity
 
@@ -325,3 +333,127 @@ def fix(path: Union[str, Path], *, dry_run: bool = True) -> dict:
         "applied": applied,
         "would_apply": len(proposals),
     }
+
+
+@dataclass(frozen=True)
+class WatchEvent:
+    """A change event emitted by `watch()`.
+
+    Attributes:
+        path: The file that changed.
+        kind: "added" (new file), "modified" (mtime or size changed), or "deleted".
+        results: Diagnose results for the changed file. Empty list for "deleted".
+        timestamp: Unix time (seconds, float) when the change was detected.
+    """
+
+    path: Path
+    kind: Literal["added", "modified", "deleted"]
+    results: List[CheckResult]
+    timestamp: float
+
+
+def watch(
+    path: Union[str, Path],
+    *,
+    checks: Optional[List] = None,
+    debounce_ms: int = 200,
+    poll_interval_ms: int = 100,
+) -> Iterator[WatchEvent]:
+    """Watch a file or directory for changes. Yields WatchEvent for each change.
+
+    Polling implementation: tracks (mtime_ns, size) of all .yaml/.yml files
+    in the tree. Detects added/modified/deleted by diffing successive scans.
+    Coalesces rapid bursts of writes via debounce.
+
+    Args:
+        path: File or directory to watch.
+        checks: Optional list of check instances. If None, uses default registry.
+        debounce_ms: After detecting a change, wait this long before emitting
+                     (to coalesce rapid writes).
+        poll_interval_ms: How often to check mtimes.
+
+    Yields:
+        WatchEvent for each change. The generator runs indefinitely; close
+        it with `gen.close()` or send KeyboardInterrupt (Ctrl+C) to stop.
+
+    Raises:
+        FileNotFoundError: if path does not exist.
+    """
+    path = Path(path)
+    if not path.exists():
+        raise FileNotFoundError(f"cron-doctor watch: path not found: {path}")
+
+    if checks is None:
+        checks = _default_registry()
+
+    def _on_walk_error(err: OSError) -> None:
+        import sys as _sys
+        print(f"cron-doctor watch: {err}", file=_sys.stderr)
+
+    def _scan() -> Dict[Path, Tuple[int, int]]:
+        result: Dict[Path, Tuple[int, int]] = {}
+        if path.is_file():
+            if path.suffix in (".yaml", ".yml"):
+                try:
+                    st = path.stat()
+                    result[path] = (st.st_mtime_ns, st.st_size)
+                except OSError:
+                    pass
+            return result
+        for root, dirs, files in os.walk(path, followlinks=False, onerror=_on_walk_error):
+            dirs[:] = [d for d in dirs if d not in _SKIP_DIRS and not d.startswith(".")]
+            for fname in files:
+                if not (fname.endswith(".yaml") or fname.endswith(".yml")):
+                    continue
+                fp = Path(root) / fname
+                try:
+                    st = fp.stat()
+                    result[fp] = (st.st_mtime_ns, st.st_size)
+                except OSError:
+                    pass
+        return result
+
+    def _diagnose_one(p: Path) -> CheckResult:
+        return _diagnose_file(p, checks=checks)
+
+    snapshot = _scan()
+    for p in sorted(snapshot.keys()):
+        yield WatchEvent(
+            path=p,
+            kind="added",
+            results=[_diagnose_one(p)],
+            timestamp=time.time(),
+        )
+
+    while True:
+        time.sleep(poll_interval_ms / 1000.0)
+        current = _scan()
+
+        new_paths = sorted(set(current.keys()) - set(snapshot.keys()))
+        missing_paths = sorted(set(snapshot.keys()) - set(current.keys()))
+        changed_paths = sorted(
+            p for p in current if p in snapshot and current[p] != snapshot[p]
+        )
+
+        if not (new_paths or missing_paths or changed_paths):
+            snapshot = current
+            continue
+
+        time.sleep(debounce_ms / 1000.0)
+        current = _scan()
+
+        new_paths = sorted(set(current.keys()) - set(snapshot.keys()))
+        missing_paths = sorted(set(snapshot.keys()) - set(current.keys()))
+        changed_paths = sorted(
+            p for p in current if p in snapshot and current[p] != snapshot[p]
+        )
+
+        ts = time.time()
+        for p in new_paths:
+            yield WatchEvent(path=p, kind="added", results=[_diagnose_one(p)], timestamp=ts)
+        for p in missing_paths:
+            yield WatchEvent(path=p, kind="deleted", results=[], timestamp=ts)
+        for p in changed_paths:
+            yield WatchEvent(path=p, kind="modified", results=[_diagnose_one(p)], timestamp=ts)
+
+        snapshot = current
