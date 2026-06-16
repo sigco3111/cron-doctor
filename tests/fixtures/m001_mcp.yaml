@@ -1,0 +1,28 @@
+# Golden fixture: enabled_toolsets reference integrity (M001).
+# Expected:
+#   - M001 ERROR for "nonexistent" (not in toolsets registry)
+#   - M001 ERROR for "another_missing" (not in toolsets registry)
+#   - M001 WARNING for duplicate toolset name "search"
+toolsets:
+  - name: search
+    description: Web search
+  - name: code
+    description: Code execution
+  - name: search
+    description: Duplicate (should warn)
+
+jobs:
+  - name: a
+    schedule: "0 * * * *"
+    prompt: x
+    enabled_toolsets: [search, code]
+
+  - name: b
+    schedule: "0 * * * *"
+    prompt: x
+    enabled_toolsets: [search, nonexistent]
+
+  - name: c
+    schedule: "0 * * * *"
+    prompt: x
+    enabled_toolsets: [search, another_missing]

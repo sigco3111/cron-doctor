@@ -1,0 +1,19 @@
+# Golden fixture: timezone validation (T001).
+# Expected:
+#   - T001 WARNING for "Foo/Bar" (invalid IANA timezone)
+#   - T001 no issue for "UTC" (valid)
+#   - T001 WARNING for "" (empty)
+- name: bad_timezone
+  schedule: "0 * * * *"
+  prompt: x
+  timezone: "Foo/Bar"
+
+- name: good_timezone
+  schedule: "0 * * * *"
+  prompt: x
+  timezone: "UTC"
+
+- name: empty_timezone
+  schedule: "0 * * * *"
+  prompt: x
+  timezone: ""

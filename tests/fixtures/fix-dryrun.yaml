@@ -1,0 +1,24 @@
+# Golden fixture: end-to-end fix --dry-run test.
+# Expected:
+#   - T001 WARNING for invalid timezone (fixable)
+#   - M001 ERROR for broken toolset ref (fixable)
+#   - C001 ERROR for invalid cron (NOT fixable)
+#   - After fix --apply, T001 + M001 issues gone; C001 remains
+toolsets:
+  - name: search
+    description: Web search
+
+jobs:
+  - name: fixable_timezone
+    schedule: "0 * * * *"
+    prompt: x
+    timezone: "Invalid/Zone"
+
+  - name: fixable_toolset
+    schedule: "0 * * * *"
+    prompt: x
+    enabled_toolsets: [search, missing_toolset]
+
+  - name: unfixable_cron
+    schedule: "60 * * * *"
+    prompt: x
