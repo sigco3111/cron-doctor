@@ -57,11 +57,15 @@ class TimezoneCheck:
     @staticmethod
     def propose_fix(diagnosis, original_line: str) -> FixProposal | None:
         """Replace an invalid `timezone: <value>` line with `timezone: UTC`."""
+        if not re.search(r"^\s*timezone:\s*\S+", original_line):
+            return None
         new_line = re.sub(
             r"^(\s*)timezone:\s*\S+",
             r"\1timezone: UTC",
             original_line,
         )
+        if new_line == original_line:
+            return None
         return FixProposal(
             file=diagnosis.file or "<unknown>",
             line=diagnosis.line or 0,

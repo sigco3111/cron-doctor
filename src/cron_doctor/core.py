@@ -5,6 +5,16 @@ Public API:
         Validate a single YAML file OR recursively validate all *.yaml/*.yml
         files in a directory. Returns a list of CheckResult (one per file).
 
+    propose_fixes(path) -> list[FixProposal]
+        Run diagnose() and return concrete edit proposals from any check that
+        implements a `propose_fix(diagnosis, original_line)` static method.
+        Files are NOT modified.
+
+    apply_fixes(path, proposals) -> int
+        Apply the given proposals in-memory and write the file back. Returns
+        the number of proposals applied. Caller must explicitly opt-in (e.g.
+        `fix --apply`).
+
     _default_registry() uses a lazy import to break the core <-> checks
     circular dependency (see CONTRIBUTING.md).
 """
@@ -14,7 +24,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import List, Optional, Union
 
-from cron_doctor.models import CheckResult, Diagnosis, Severity
+from cron_doctor.models import CheckResult, Diagnosis, FixProposal, Severity
 
 
 # Directories to skip when walking (e.g. .git, venv)
@@ -146,3 +156,172 @@ def _default_registry() -> list:
     """Lazy import to avoid circular import between core.py and checks/."""
     from cron_doctor.checks import default_checks
     return default_checks()
+
+
+def propose_fixes(path: Union[str, Path]) -> List[FixProposal]:
+    """Propose (but do NOT apply) auto-fixes for the given file or directory.
+
+    Runs `diagnose(path)` first, then for each Diagnosis, dispatches to the
+    producing check's `propose_fix(diagnosis, original_line)` static method
+    to obtain a concrete FixProposal. Checks that don't implement
+    propose_fix (e.g. C001) are silently skipped.
+
+    The returned proposals are NOT applied. Use `apply_fixes(path, proposals)`
+    with explicit user opt-in to write changes.
+    """
+    path = Path(path)
+
+    if path.is_dir():
+        results_proposals: List[FixProposal] = []
+        for f in sorted(path.rglob("*")):
+            if not f.is_file():
+                continue
+            if f.suffix not in (".yaml", ".yml"):
+                continue
+            if any(part in _SKIP_DIRS for part in f.parts):
+                continue
+            results_proposals.extend(_propose_fixes_for_file(f))
+        return results_proposals
+
+    return _propose_fixes_for_file(path)
+
+
+def _propose_fixes_for_file(path: Path) -> List[FixProposal]:
+    """For one file, return all auto-fix proposals from checks that support it."""
+    try:
+        results = diagnose(path)
+    except Exception:
+        return []
+    if not results:
+        return []
+
+    result = results[0]
+    if not result.issues:
+        return []
+
+    try:
+        text = path.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError):
+        return []
+    lines = text.splitlines(keepends=True)
+
+    proposals: List[FixProposal] = []
+    for issue in result.issues:
+        check = _find_check(issue.check_id)
+        if check is None:
+            continue
+        propose = getattr(check, "propose_fix", None)
+        if propose is None:
+            continue
+
+        if issue.line is not None and 1 <= issue.line <= len(lines):
+            try:
+                proposal = propose(issue, lines[issue.line - 1])
+            except Exception:
+                proposal = None
+            if proposal is not None:
+                proposals.append(proposal)
+            continue
+
+        for idx, line in enumerate(lines, start=1):
+            try:
+                proposal = propose(issue, line)
+            except Exception:
+                continue
+            if proposal is not None:
+                from dataclasses import replace
+                proposals.append(replace(proposal, line=idx))
+                break
+
+    return proposals
+
+
+def _find_check(check_id: str):
+    """Look up a check instance by its id from the default registry."""
+    for c in _default_registry():
+        if c.check_id == check_id:
+            return c
+    return None
+
+
+def apply_fixes(path: Union[str, Path], proposals: List[FixProposal]) -> int:
+    """Apply the given proposals to the file in-place.
+
+    SAFETY: This function writes to disk. Callers MUST obtain explicit user
+    opt-in (e.g. via `cron-doctor fix --apply`) before calling this.
+
+    Returns the number of proposals successfully applied.
+
+    Sorting: applied line-by-line in DESCENDING order to avoid index shift
+    when multiple proposals target the same file.
+    """
+    if not proposals:
+        return 0
+
+    path = Path(path)
+    if not path.is_file():
+        return 0
+
+    try:
+        text = path.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError):
+        return 0
+    lines = text.splitlines(keepends=True)
+
+    applied = 0
+    sorted_proposals = sorted(proposals, key=lambda p: (p.line, p.check_id), reverse=True)
+    for p in sorted_proposals:
+        if p.line < 1 or p.line > len(lines):
+            continue
+        original = lines[p.line - 1]
+        # Apply only if the line still matches the expected original (idempotency)
+        if p.original and p.original.strip() and original.strip() != p.original.strip():
+            continue
+        # Preserve trailing newline behavior
+        replacement = p.replacement
+        if original.endswith("\n") and not replacement.endswith("\n"):
+            replacement = replacement + "\n"
+        elif not original.endswith("\n") and replacement.endswith("\n"):
+            replacement = replacement.rstrip("\n")
+        lines[p.line - 1] = replacement
+        applied += 1
+
+    if applied == 0:
+        return 0
+
+    new_text = "".join(lines)
+    try:
+        path.write_text(new_text, encoding="utf-8")
+    except OSError:
+        return 0
+    return applied
+
+
+def fix(path: Union[str, Path], *, dry_run: bool = True) -> dict:
+    """High-level Python API: propose (and optionally apply) auto-fixes.
+
+    Args:
+        path: file or directory to fix.
+        dry_run: if True (default), only propose. If False, apply changes.
+
+    Returns:
+        dict with keys:
+            - "proposals": list[FixProposal]
+            - "applied": int (number applied; 0 in dry-run mode)
+            - "would_apply": int (number of proposals that would be applied)
+
+    Safety: defaults to dry_run=True. To write changes, pass dry_run=False.
+    """
+    proposals = propose_fixes(path)
+    if dry_run:
+        return {
+            "proposals": proposals,
+            "applied": 0,
+            "would_apply": len(proposals),
+        }
+    applied = apply_fixes(path, proposals)
+    return {
+        "proposals": proposals,
+        "applied": applied,
+        "would_apply": len(proposals),
+    }

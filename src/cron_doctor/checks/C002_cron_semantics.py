@@ -148,3 +148,48 @@ class CronSemanticsCheck:
         )
         has_seven = any(p == "7" or p.startswith("7-") for p in parts)
         return has_zero and has_seven
+
+    @staticmethod
+    def propose_fix(diagnosis, original_line: str):
+        """Normalize weekday 7 → 0 when both 0 and 7 appear in the schedule.
+
+        Only applies to "0 and 7" warnings; returns None for other C002 issues.
+        """
+        from cron_doctor.models import FixProposal
+        if "0 and 7" not in diagnosis.message:
+            return None
+        import re
+        m = re.search(r'(schedule:\s*)(["\']?)([^"\']+)\2', original_line)
+        if not m:
+            return None
+        prefix, quote, schedule_str = m.group(1), m.group(2), m.group(3)
+        fields = schedule_str.split()
+        if len(fields) < 5:
+            return None
+        dow = fields[-1]
+        new_dow = re.sub(r"\b7(-?\d*)\b", r"0\1", dow)
+        if new_dow == dow:
+            return None
+        parts = [p.strip() for p in new_dow.split(",")]
+        seen: set = set()
+        deduped: list = []
+        for p in parts:
+            if p not in seen:
+                seen.add(p)
+                deduped.append(p)
+        new_dow_final = ",".join(deduped)
+        fields[-1] = new_dow_final
+        new_schedule = " ".join(fields)
+        new_line = original_line.replace(
+            f"{prefix}{quote}{schedule_str}{quote}",
+            f"{prefix}{quote}{new_schedule}{quote}",
+            1,
+        )
+        return FixProposal(
+            file=diagnosis.file or "<unknown>",
+            line=diagnosis.line or 0,
+            check_id=diagnosis.check_id,
+            description="normalize weekday 7 → 0 (dedup)",
+            original=original_line,
+            replacement=new_line,
+        )

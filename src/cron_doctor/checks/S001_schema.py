@@ -123,3 +123,32 @@ class SchemaCheck:
             ))
 
         return issues
+
+    @staticmethod
+    def propose_fix(diagnosis, original_line: str):
+        """Comment out an unknown key on the offending line.
+
+        Only applies to Diagnosis with a 'Unknown key' message; returns None otherwise.
+        """
+        from cron_doctor.models import FixProposal
+        if "Unknown key" not in diagnosis.message:
+            return None
+        # Extract the key name from the message: "Unknown key 'foo' ..."
+        import re
+        m = re.search(r"Unknown key '([^']+)'", diagnosis.message)
+        if not m:
+            return None
+        key = m.group(1)
+        # If the line is `  foo: bar`, comment it out
+        stripped = original_line.lstrip()
+        if not stripped.startswith(key + ":"):
+            return None
+        indent = original_line[: len(original_line) - len(stripped)]
+        return FixProposal(
+            file=diagnosis.file or "<unknown>",
+            line=diagnosis.line or 0,
+            check_id=diagnosis.check_id,
+            description=f"comment out unknown key {key!r}",
+            original=original_line,
+            replacement=f"{indent}# {stripped.rstrip()}  # cron-doctor: removed unknown key\n",
+        )
