@@ -70,16 +70,45 @@ def _diagnose_file(path: Path, *, checks: Optional[list] = None) -> CheckResult:
             return result
 
     # Step 2: load the YAML (shouldn't fail since Y001 passed)
-    from cron_doctor.parsers.yaml_loader import load_cron_yaml
+    from cron_doctor.parsers.yaml_loader import load_cron_document
     try:
-        jobs = load_cron_yaml(path)
+        doc = load_cron_document(path)
     except Exception:  # defensive — Y001 should have caught
         return result
 
+    jobs = doc.get("jobs", [])
     if not jobs:
         return result
 
     result.jobs = jobs
+
+    # Step 2.5: build toolset registry and check for duplicates
+    toolsets_raw = doc.get("toolsets", [])
+    toolset_names: set = set()
+    if isinstance(toolsets_raw, list):
+        for t in toolsets_raw:
+            if isinstance(t, dict) and isinstance(t.get("name"), str):
+                toolset_names.add(t["name"])
+
+    if isinstance(toolsets_raw, list):
+        seen: set = set()
+        duplicates: list = []
+        for t in toolsets_raw:
+            if isinstance(t, dict) and isinstance(t.get("name"), str):
+                n = t["name"]
+                if n in seen:
+                    duplicates.append(n)
+                seen.add(n)
+        for dup in duplicates:
+            result.issues.append(Diagnosis(
+                check_id="M001",
+                severity=Severity.WARNING,
+                message=f"Duplicate toolset name {dup!r} in document root `toolsets:`",
+                suggestion="Each toolset must have a unique name",
+                file=str(path),
+            ))
+
+    document_toolsets = toolset_names if toolset_names else None
 
     # Step 3: per-job checks
     for job_idx, job in enumerate(jobs):
@@ -87,6 +116,7 @@ def _diagnose_file(path: Path, *, checks: Optional[list] = None) -> CheckResult:
             "file": str(path),
             "all_jobs": jobs,
             "job_index": job_idx,
+            "document_toolsets": document_toolsets,
         }
         for check in checks:
             if check.check_id == "Y001":

@@ -31,10 +31,10 @@ def test_version_flag():
 
 # --- list-checks ---
 
-def test_list_checks_lists_all_5():
+def test_list_checks_lists_all_8():
     r = run_cli("list-checks")
     assert r.returncode == 0
-    for cid in ("Y001", "C001", "C002", "D001", "S001"):
+    for cid in ("Y001", "C001", "C002", "D001", "S001", "T001", "P001", "M001"):
         assert cid in r.stdout, f"missing {cid} in {r.stdout!r}"
 
 

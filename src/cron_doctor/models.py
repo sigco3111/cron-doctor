@@ -64,6 +64,30 @@ class CheckResult:
         return any(d.severity == Severity.WARNING for d in self.issues)
 
 
+@dataclass(frozen=True)
+class FixProposal:
+    """A single proposed text fix for a Diagnosis.
+
+    Produced by a check's `propose_fix(diagnosis, original_line)` method and
+    later applied (after user confirmation) by the fixer in Wave 2.
+
+    Attributes:
+        file: Path of the file to modify.
+        line: 1-based line number the fix targets.
+        check_id: The check that produced the original Diagnosis (e.g. "T001").
+        description: Short human-readable description of the fix.
+        original: The exact original line text (including indentation).
+        replacement: The exact replacement line text (including indentation).
+    """
+
+    file: str
+    line: int
+    check_id: str
+    description: str
+    original: str
+    replacement: str
+
+
 @runtime_checkable
 class BaseCheck(Protocol):
     """Protocol every check must satisfy.

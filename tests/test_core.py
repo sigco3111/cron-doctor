@@ -128,8 +128,9 @@ def test_diagnose_checks_filter_only_runs_specified(tmp_path: Path):
     assert all(i.check_id == "C001" for i in results[0].issues)
 
 
-def test_default_checks_has_5():
-    assert len(default_checks()) == 5
+def test_default_checks_has_8():
+    """5 v0.1.0 checks (Y001/C001/C002/D001/S001) + 3 v0.2.0 (T001/P001/M001)."""
+    assert len(default_checks()) == 8
 
 
 def test_default_checks_returns_fresh_list():
@@ -137,4 +138,4 @@ def test_default_checks_returns_fresh_list():
     a = default_checks()
     a.clear()
     b = default_checks()
-    assert len(b) == 5
+    assert len(b) == 8
