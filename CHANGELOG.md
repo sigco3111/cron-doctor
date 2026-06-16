@@ -7,6 +7,61 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-06-16
+
+**First stable release.** The public API surface (`cron_doctor.__all__`) is
+frozen. No breaking changes within v1.x.
+
+### Added
+- **Public API contract** (`docs/API.md`): full documentation of all public
+  symbols, CLI surface, performance budgets, and deprecation policy. Stability
+  markers (`Stable since v1.0.0`) added to all public module docstrings.
+- **`propose_fixes` and `apply_fixes` added to `__all__`**: they were already
+  importable from `cron_doctor.core` but not re-exported at the top level.
+  Now part of the stable v1.0.0 contract.
+- **Comprehensive test suite**: 473 tests, 95% coverage across 1,187 statements.
+  - 75 in-process CLI tests (`test_cli_inproc.py`) — covers all 148 previously
+    untested statements in `cli.py`
+  - 44 public API contract tests (`test_public_api.py`, `test_getattr_lazy.py`,
+    `test_main.py`) — guards `__all__` completeness, module stability markers,
+    frozen dataclasses, function signatures, lazy `__getattr__` behavior
+  - 48 defensive path tests (`test_yaml_loader_defensive.py`,
+    `test_core_defensive.py`) — file I/O errors, YAML edge cases, check
+    crash isolation, `apply_fixes` idempotency, watch error handling
+  - 31 C002 edge case tests (`test_C002_edge_cases.py`) — 6-field cron,
+    every-minute detection, impossible/leap DOM, weekday 0+7 normalization
+  - 3 performance benchmarks (`test_benchmarks.py`) — startup < 200ms,
+    diagnose 10 files < 100ms, watch latency < 2× poll_interval
+  - 2 v1.0.0 contract guards (`test_version.py`) — version must start with
+    `1.`, `--version` output must include `python` keyword
+  - 3 `__main__.py` in-process tests (`test_main_inproc.py`)
+- **Deprecation policy** added to `CONTRIBUTING.md`: deprecations must be
+  announced in `CHANGELOG.md` and kept functional for at least one minor
+  release before removal in the next major.
+
+### Changed
+- **Version bumped to 1.0.0** (pyproject.toml, `__init__.py`)
+- **`--version` output** now includes Python version:
+  `cron-doctor 1.0.0 (Python 3.13.6)` (was just `cron-doctor 0.3.0`)
+- **CI coverage gate raised from 70% to 95%** — the v1.0.0 stability promise
+  requires a higher confidence bar
+
+### Fixed
+- **Korean-text typo in `__init__.py` docstring**: `cron_doctor.예외` →
+  `cron_doctor.exceptions` (the Korean word leaked into the English docstring)
+- **pyproject.toml version drift**: was `0.2.0` while `__version__` was
+  `0.3.0`. Now guarded by `test_version.py` for forward compatibility
+
+### Notes
+- **Zero new dependencies** — all v1.0.0 work used only stdlib + existing
+  PyYAML. No `pytest-benchmark`, no `hypothesis`, no `watchdog`.
+- **Lazy imports preserved** — `diagnose`, `fix`, `propose_fixes`,
+  `apply_fixes`, `watch`, `WatchEvent` are still loaded via `__getattr__`
+  so `cron-doctor --version` starts in < 200ms.
+- **472 of 473 tests pass at the version bump; the 473rd test
+  (`test_cli.py::test_version_flag`) was hardcoded to "0.3.0" and was
+  immediately fixed in the same wave to use `cron_doctor.__version__`.**
+
 ## [0.3.0] - 2026-06-16
 
 ### Added
@@ -116,5 +171,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `action.yml` for GitHub Marketplace is deferred to a later release.
 - Coverage is 73% (cli.py and __main__.py are 0% in-process; covered via subprocess tests). CI gate is set to 70% to avoid CI flakes.
 
-[Unreleased]: https://github.com/sigco3111/cron-doctor/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/sigco3111/cron-doctor/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/sigco3111/cron-doctor/releases/tag/v1.0.0
+[0.3.0]: https://github.com/sigco3111/cron-doctor/compare/v0.2.0...v0.3.0
+[0.2.0]: https://github.com/sigco3111/cron-doctor/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/sigco3111/cron-doctor/releases/tag/v0.1.0
