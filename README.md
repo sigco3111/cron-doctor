@@ -216,7 +216,7 @@ cron-doctor check tests/fixtures/valid.yaml
 - [x] **v0.1.0** — 5개 핵심 검사 + CLI 골격 + 골든 파일 테스트 ✅
 - [x] **v0.2.0** — T001/P001/M001 + Python API + fix --dry-run ✅
 - [x] **v0.3.0** — watch 모드 (실시간 파일 변경 감시) ✅
-- [ ] **v1.0.0** — 안정 API + 95% 코드 커버리지
+- [x] **v1.0.0** — 안정 API + 95% 코드 커버리지 ✅
 
 ---
 
@@ -287,8 +287,8 @@ cd cron-doctor
 pip install -e ".[dev]"
 ```
 
-**Status**: v0.2.0 — 8 checks (Y001/C001/C002/D001/S001 + T001/P001/M001) + CLI + `fix` subcommand + golden file tests. 247 tests passing, ~73% coverage (cli/__main__ covered via subprocess).
+**Status**: v1.0.0 — first stable release. 8 checks (Y001/C001/C002/D001/S001 + T001/P001/M001) + CLI + `fix` subcommand + `watch` mode + golden file tests. 473 tests passing, 95% coverage. Public API frozen — no breaking changes within v1.x.
 
-**Roadmap**: v0.3.0 (watch mode) → v0.1.0 (stable API + 95% coverage).
+**Roadmap**: v1.0.0 shipped (stable API + 95% coverage). Future v1.x releases will be additive only.
 
 See the [Korean section above](#crond-doctor) for full documentation, use cases, and check module details.
