@@ -6,7 +6,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
 [![Dependencies: PyYAML only](https://img.shields.io/badge/dependencies-PyYAML--only-blue.svg)](#설치--installation)
-[![Status: 0.1.0 (stable)](https://img.shields.io/badge/status-0.1.0--stable-brightgreen.svg)](#로드맵--roadmap)
+[![Status: 1.0.0 (stable)](https://img.shields.io/badge/status-1.0.0--stable-brightgreen.svg)](#로드맵--roadmap)
 
 `md-doctor`의 짝꿍 프로젝트 — **마크다운을 진단하듯, cron 작업을 진단합니다**.
 
@@ -35,14 +35,13 @@
 - ✅ **의존성 그래프** — `context_from` 체인이 순환하는지, 깨진 참조가 있는지
 - ✅ **스키마 검증** — Hermes `cron.yaml` 스키마에 맞는 키만 사용했는지
 - 🎨 **사람용 컬러 출력** + **JSON** + **GitHub Actions 워크플로 명령** 출력 동시 지원
-- 📦 **Zero external dependencies** — Python 3.9+ 표준 라이브러리만
+- 📦 **Minimal dependencies** — Python 3.9+ 표준 라이브러리 + **PyYAML만** (정확한 YAML line/column 보고용)
 
 ---
 
 ## 📦 설치 — Installation
 
 ```bash
-# 다른 PC에서 (이 PC는 README/About만 작업)
 git clone https://github.com/sigco3111/cron-doctor.git
 cd cron-doctor
 pip install -e ".[dev]"
@@ -55,11 +54,11 @@ source venv/bin/activate → pip install -e ".[dev]" → pytest
 ```
 3분이면 환경 검증 끝.
 
-> 📌 **현재 상태**: 이 repo는 **Phase 0 — 스켈레톤 + 문서** 단계입니다. 실제 소스 코드(`src/cron_doctor/`)는 다른 PC에서 작업 예정. README/CHANGELOG/CONTRIBUTING/LICENSE만 먼저 공개.
+> 📌 **현재 상태**: **v1.0.0 첫 안정 릴리스**. `__all__`에 노출된 공개 API는 v1.x 내에서 동결 — breaking change 없음. 자세한 계약은 [`docs/API.md`](docs/API.md) 참고.
 
 ---
 
-## 🚀 빠른 시작 — Quick Start (v0.1.0 이후)
+## 🚀 빠른 시작 — Quick Start (v1.0.0)
 
 ```bash
 # 단일 파일 검증
@@ -123,6 +122,8 @@ for p in fix_result["proposals"]:
 | `P001` | 프롬프트 자가검증 | 길이 10K+ WARNING, 내장 secret (sk-/AKIA/ghp_/Bearer/password=) ERROR. |
 | `M001` | MCP 설정 | `enabled_toolsets` 참조 무결성. 깨진 참조 ERROR, 중복 정의 WARNING. |
 
+**🔒 v1.0.0 안정 API** — 위 8개 검사와 공개 Python API (`diagnose`, `propose_fixes`, `apply_fixes`, `fix`, `watch`, `WatchEvent`, `Diagnosis`, `CheckResult`, `FixProposal`, `Severity`, 예외 계층) 모두 v1.x 내에서 backward-compatible. 자세한 계약: [`docs/API.md`](docs/API.md).
+
 **`fix` 서브커맨드** (v0.2.0+):
 ```bash
 # Dry-run (기본값, 안전)
@@ -176,9 +177,7 @@ cron-doctor check ./cron.yaml --checks D001
 
 ---
 
-## 🧩 다른 PC에서 작업 — Development on Another PC
-
-이 repo는 **다른 PC에서 본격적으로 코딩**합니다. 이 PC에서는 README/About/스켈레톤만 작업했어요.
+## 🧩 개발 — Development
 
 ```bash
 # 1. 클론
@@ -193,20 +192,26 @@ source venv/bin/activate
 pip install -e ".[dev]"
 
 # 4. 테스트
-pytest
+pytest                       # 473 tests
+pytest --cov=cron_doctor     # 95% 커버리지 확인
 
 # 5. 실제 CLI 동작 확인
 cron-doctor --version
 cron-doctor check tests/fixtures/valid.yaml
 ```
 
-**작업 순서 제안**:
-1. `src/cron_doctor/models.py` — 도메인 타입 (순환 import 방지 핵심)
-2. `src/cron_doctor/parser.py` — YAML + cron 표현식 파서
-3. `src/cron_doctor/checks/` — 5개 검사 모듈 (Y/C/D/S)
-4. `src/cron_doctor/cli.py` — argparse CLI
-5. `tests/` — 골든 파일 + 단위 테스트
-6. `.github/workflows/ci.yml` + `action.yml`
+**새 검사 모듈 추가 절차** (자세한 내용은 [`CONTRIBUTING.md`](CONTRIBUTING.md) 참고):
+1. `src/cron_doctor/checks/`에 `X###_name.py` 생성
+2. `checks/__init__.py`의 `ALL_CHECKS` / `default_checks`에 등록
+3. `tests/test_X###_name.py`에 단위 테스트 작성 (TDD)
+4. `tests/fixtures/`에 골든 YAML 추가
+5. `list-checks`로 노출 확인
+
+**PR 전 체크리스트**:
+- `pytest` 전부 통과 (현재 473/473)
+- `pytest --cov` 95% 이상 유지
+- `cron-doctor --version`이 `1.x.x`로 시작
+- 새 공개 심볼은 `docs/API.md`에 문서화
 
 ---
 
@@ -232,7 +237,7 @@ cron-doctor/
 ├── pyproject.toml          ← setuptools 백엔드, zero-deps
 ├── pytest.ini              ← 표준 pytest 설정
 ├── src/
-│   └── cron_doctor/        ← 다른 PC에서 구현
+│   └── cron_doctor/        ← 공개 API (v1.0.0 동결)
 │       ├── __init__.py
 │       ├── __main__.py
 │       ├── cli.py
