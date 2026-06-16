@@ -7,7 +7,7 @@ line/column info for actionable YAML error messages).
 Public API (v0.3.0):
     from cron_doctor import diagnose, fix, watch, WatchEvent
     from cron_doctor.models import Diagnosis, CheckResult, FixProposal, Severity
-    from cron_doctor.예외 import CronDoctorError, ParseError, ...
+    from cron_doctor.exceptions import CronDoctorError, ParseError, ...
 """
 from __future__ import annotations
 
