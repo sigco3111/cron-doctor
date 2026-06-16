@@ -7,6 +7,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-06-16
+
+### Added
+- **Watch mode** (`watch` subcommand + `core.watch()`):
+  - Polling-based real-time file change detection (stdlib only, no new deps)
+  - `core.WatchEvent` frozen dataclass (path, kind, results, timestamp)
+  - `core.watch(path, *, debounce_ms=200, poll_interval_ms=100)` generator yielding `WatchEvent` for added/modified/deleted
+  - `(mtime_ns, size)` as change signal (cross-platform, works on macOS/Linux/Windows)
+  - Debounce coalesces rapid writes (default 200ms window)
+  - Skips `_SKIP_DIRS` (`.git`, `__pycache__`, etc.) and hidden directories
+  - `os.walk(followlinks=False)` prevents symlink loops
+  - `os.walk(onerror=...)` logs permission errors to stderr and continues
+- **CLI `watch` subcommand**:
+  - `cron-doctor watch PATH [--debounce N] [--poll-interval N] [--format text|json|github] [--checks C001,C002]`
+  - Registers SIGTERM handler for graceful shutdown (Ctrl+C / SIGTERM → exit 0)
+  - Per-event output with timestamp header
+  - `--format json` outputs one JSON object per line
+  - `--format github` uses GitHub Actions workflow command syntax
+- **Test suite**: 265 tests (247 v0.2.0 + 18 new), 100% passing
+- **2 new golden fixtures** in `tests/fixtures/watch-test/` for end-to-end watch testing
+
+### Changed
+- Version bumped to 0.3.0 (pyproject.toml, `__init__.py`)
+- `test_directory_mode_processes_all_yaml_fixtures` count: 9 → 11 (added watch-test fixtures)
+- `test_version_flag` now asserts "0.3.0"
+
+### Notes
+- **Polling trade-off**: watch uses polling (default 100ms interval), not inotify/FSEvents. Higher CPU on large trees, but zero new deps. Future v0.4+ may add `watchdog` as optional dep.
+- **mtime resolution**: uses `st_mtime_ns` (nanosecond precision on ext4/APFS/NTFS). On FAT32 (2s resolution), use `--debounce 2000` or higher to coalesce.
+- **Race condition**: between `os.stat` and `diagnose()`, a write may complete. The emitted event reflects the post-write state, not the triggering mtime. Benign.
+- **File in write-progress**: debounce coalesces — events are emitted only after `debounce_ms` of no further change.
+- **Windows**: `--format xml` and other invalid formats are rejected by argparse with exit 2.
+
 ## [0.2.0] - 2026-06-16
 
 ### Added

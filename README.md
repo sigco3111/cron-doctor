@@ -79,11 +79,17 @@ cron-doctor list-checks
 
 # 자동 수정 제안 (안전, dry-run 기본)
 cron-doctor fix ./cron.yaml --dry-run
+
+# 실시간 파일 변경 감시 (Ctrl+C로 종료)
+cron-doctor watch ./jobs/
+
+# JSON 형식으로 watch 출력
+cron-doctor watch ./cron.yaml --format json
 ```
 
-**Python API (v0.2.0+)**:
+**Python API (v0.3.0+)**:
 ```python
-from cron_doctor import diagnose, fix, FixProposal, Severity
+from cron_doctor import diagnose, fix, watch, WatchEvent, FixProposal, Severity
 
 # Diagnose
 result = diagnose("./cron.yaml")
@@ -209,7 +215,7 @@ cron-doctor check tests/fixtures/valid.yaml
 - [x] **v0.1.0** — README/About/스켈레톤 ✅
 - [x] **v0.1.0** — 5개 핵심 검사 + CLI 골격 + 골든 파일 테스트 ✅
 - [x] **v0.2.0** — T001/P001/M001 + Python API + fix --dry-run ✅
-- [ ] **v0.3.0** — watch 모드 (실시간 파일 변경 감시)
+- [x] **v0.3.0** — watch 모드 (실시간 파일 변경 감시) ✅
 - [ ] **v1.0.0** — 안정 API + 95% 코드 커버리지
 
 ---
